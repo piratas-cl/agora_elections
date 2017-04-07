@@ -27,18 +27,18 @@ trapExit in run := false
 
 lazy val root = (project in file(".")).enablePlugins(PlayScala)
 
-scalaVersion := "2.11.1"
+scalaVersion := "2.11.8"
 
 libraryDependencies ++= Seq(
   jdbc,
   cache,
   ws,
-  "com.typesafe.play" %% "play-slick" % "0.8.0",
-  "org.postgresql" % "postgresql" % "9.3-1100-jdbc4",
-  "org.bouncycastle" % "bcprov-jdk16" % "1.45",
-  "com.googlecode.owasp-java-html-sanitizer" % "owasp-java-html-sanitizer" % "r239",
-  "commons-validator" % "commons-validator" % "1.4.1",
-  "com.github.mumoshu" %% "play2-memcached-play23" % "0.7.0",
+  "com.typesafe.play" %% "play-slick" % "1.1.1",
+  "org.postgresql" % "postgresql" % "9.4.1212",
+  "org.bouncycastle" % "bcprov-jdk16" % "1.46",
+  "com.googlecode.owasp-java-html-sanitizer" % "owasp-java-html-sanitizer" % "20170329.1",
+  "commons-validator" % "commons-validator" % "1.6",
+  "com.github.mumoshu" %% "play2-memcached-play24" % "0.7.0",
   "com.chuusai" %% "shapeless" % "2.0.0"
 )
 
