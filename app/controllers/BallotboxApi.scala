@@ -21,10 +21,14 @@ import utils._
 import utils.JsonFormatters._
 import utils.Response
 
+
+import slick.driver.JdbcProfile
+import javax.inject._
 import play.api._
 import play.api.mvc._
 import play.api.Play.current
-import play.api.db.slick.DB
+//import play.api.db.slick._
+//import play.api.db._
 import play.libs.Akka
 import play.api.http.{Status => HTTP}
 import play.api.libs.ws._
@@ -32,6 +36,10 @@ import play.api.libs.ws._
 import play.api.libs.json._
 import play.api.libs.ws.ning.NingAsyncHttpClientConfigBuilder
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
+
+/*import play.api.Play
+import play.api.db.slick.DatabaseConfigProvider
+import slick.driver.JdbcProfile*/
 
 import scala.concurrent._
 import java.sql.Timestamp
@@ -43,8 +51,10 @@ import java.sql.Timestamp
   *
   * Thread pool isolation implemented via futures
   */
-object BallotboxApi extends Controller with Response {
+object BallotboxApi  extends Controller with Response {
 
+  @Inject
+  implicit val dbConfig : slick.backend.DatabaseConfig[slick.driver.JdbcProfile] = play.api.db.slick.DatabaseConfigProvider.get[slick.driver.JdbcProfile](play.api.Play.current)
   val slickExecutionContext = Akka.system.dispatchers.lookup("play.akka.actor.slick-context")
   val maxRevotes = Play.current.configuration.getInt("app.api.max_revotes").getOrElse(20)
   val voteCallbackUrl = Play.current.configuration.getString("app.vote_callback_url")
@@ -63,7 +73,7 @@ object BallotboxApi extends Controller with Response {
 
         try {
 
-          DB.withSession { implicit session =>
+          {
 
             val election = DAL.elections.findByIdWithSession(electionId).get
             val votesCast = DAL.votes.countForElectionAndVoter(electionId, voterId)
@@ -150,7 +160,7 @@ object BallotboxApi extends Controller with Response {
     Logger.info(s"dumping votes for election $electionId")
 
     val batchSize: Int = Play.current.configuration.getInt("app.dump.batchsize").getOrElse(100)
-    DB.withSession { implicit session =>
+    {
 
       val count = DAL.votes.countForElectionWithSession(electionId)
       val batches = (count / batchSize) + 1

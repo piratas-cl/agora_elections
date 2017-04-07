@@ -16,9 +16,8 @@
 **/
 package models
 
-import play.api.db.slick.DB
+import play.api.db.slick._
 import play.api.cache.Cache
-import play.api.db.slick.Config.driver.simple._
 import play.api.Play.current
 import play.api._
 
@@ -35,62 +34,62 @@ object DAL {
   /** straight mapping to models */
   object votes {
 
-    def insert(vote: Vote) = DB.withSession { implicit session =>
+    def insert(vote: Vote)(implicit dbConfig : slick.backend.DatabaseConfig[slick.driver.JdbcProfile]) = {
       insertWithSession(vote)
     }
-    def insertWithSession(vote: Vote)(implicit s: Session) = {
+    def insertWithSession(vote: Vote)(implicit dbConfig : slick.backend.DatabaseConfig[slick.driver.JdbcProfile]) = {
       Votes.insert(vote)
     }
 
-    def findByVoterId(voterId: String): List[Vote] = DB.withSession { implicit session =>
+    def findByVoterId(voterId: String): List[Vote] = n {
       Votes.findByVoterId(voterId)
     }
 
-    def findByElectionId(electionId: Long): List[Vote] = DB.withSession { implicit session =>
+    def findByElectionId(electionId: Long): List[Vote] = { 
       Votes.findByElectionId(electionId)
     }
 
-    def findByElectionIdRange(electionId: Long, drop: Long, take: Long): List[Vote] = DB.withSession { implicit session =>
+    def findByElectionIdRange(electionId: Long, drop: Long, take: Long): List[Vote] = { 
       findByElectionIdRangeWithSession(electionId, drop, take)
     }
 
-    def findByElectionIdRangeWithSession(electionId: Long, drop: Long, take: Long)(implicit s: Session): List[Vote] = {
+    def findByElectionIdRangeWithSession(electionId: Long, drop: Long, take: Long): List[Vote] = {
       Votes.findByElectionIdRange(electionId, drop, take)
     }
 
-    def checkHash(id: Long, hash: String) = DB.withSession { implicit session =>
+    def checkHash(id: Long, hash: String) = {
       Votes.checkHash(id, hash)
     }
 
-    def count: Int = DB.withSession { implicit session =>
+    def count: Int = {
       Votes.count
     }
 
-    def countForElection(electionId: Long): Int = DB.withSession { implicit session =>
+    def countForElection(electionId: Long): Int = {
       countForElectionWithSession(electionId)
     }
 
-    def countForElectionWithSession(electionId: Long)(implicit s: Session): Int = {
+    def countForElectionWithSession(electionId: Long): Int = {
       Votes.countForElection(electionId)
     }
 
-    def countUniqueForElection(electionId: Long): Int = DB.withSession { implicit session =>
+    def countUniqueForElection(electionId: Long): Int = {
       countUniqueForElectionWithSession(electionId)
     }
 
-    def countUniqueForElectionWithSession(electionId: Long)(implicit s: Session): Int = {
+    def countUniqueForElectionWithSession(electionId: Long): Int = {
       Votes.countUniqueForElection(electionId)
     }
 
-    def countForElectionAndVoter(electionId: Long, voterId: String)(implicit s: Session): Int = {
+    def countForElectionAndVoter(electionId: Long, voterId: String): Int = {
       Votes.countForElectionAndVoter(electionId,voterId)
     }
 
-    def byDay(electionId: Long): List[(String, Long)] = DB.withSession { implicit session =>
+    def byDay(electionId: Long): List[(String, Long)] = {
         byDayW(electionId)
     }
 
-    def byDayW(electionId: Long)(implicit s: Session): List[(String, Long)] = {
+    def byDayW(electionId: Long): List[(String, Long)] = {
       Votes.byDay(electionId)
     }
 
@@ -100,10 +99,10 @@ object DAL {
   /** adds a caching layer */
   object elections {
 
-    def findById(id: Long): Option[Election] = DB.withSession { implicit session =>
+    def findById(id: Long): Option[Election] = {
       findByIdWithSession(id)
     }
-    def findByIdWithSession(id: Long)(implicit s: Session): Option[Election] = Cache.getAs[Election](key(id)) match {
+    def findByIdWithSession(id: Long): Option[Election] = Cache.getAs[Election](key(id)) match {
       case Some(e) => {
         Some(e)
       }
@@ -115,41 +114,41 @@ object DAL {
       }
     }
 
-    def count: Int = DB.withSession { implicit session =>
+    def count: Int = DB.withSession {
       Elections.count
     }
 
-    def insert(election: Election) = DB.withSession { implicit session =>
+    def insert(election: Election) = {
       Cache.remove(key(election.id))
       Elections.insert(election)
     }
 
-    def insertWithSession(election: Election)(implicit s:Session) = DB.withSession { implicit session =>
+    def insertWithSession(election: Election) = {
       Cache.remove(key(election.id))
       Elections.insert(election)
     }
 
-    def updateState(id: Long, state: String) = DB.withSession { implicit session =>
+    def updateState(id: Long, state: String) = {
       Cache.remove(key(id))
       Elections.updateState(id, state)
     }
 
-    def updateResults(id: Long, results: String) = DB.withSession { implicit session =>
+    def updateResults(id: Long, results: String) = {
       Cache.remove(key(id))
       Elections.updateResults(id, results)
     }
 
-    def updateConfig(id: Long, config: String, start: Timestamp, end: Timestamp) = DB.withSession { implicit session =>
+    def updateConfig(id: Long, config: String, start: Timestamp, end: Timestamp) = {
       Cache.remove(key(id))
       Elections.updateConfig(id, config, start, end)
     }
 
-    def setPublicKeys(id: Long, pks: String) = DB.withSession { implicit session =>
+    def setPublicKeys(id: Long, pks: String) = {
       Cache.remove(key(id))
       Elections.setPublicKeys(id, pks)
     }
 
-    def delete(id: Long) = DB.withSession { implicit session =>
+    def delete(id: Long) = {
       Cache.remove(key(id))
       Elections.delete(id)
     }

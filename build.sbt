@@ -29,11 +29,15 @@ lazy val root = (project in file(".")).enablePlugins(PlayScala)
 
 scalaVersion := "2.11.8"
 
+routesGenerator := InjectedRoutesGenerator
+
 libraryDependencies ++= Seq(
   jdbc,
   cache,
   ws,
   "com.typesafe.play" %% "play-slick" % "1.1.1",
+  "com.typesafe.play" %% "play-slick-evolutions" % "1.1.1",
+  "com.typesafe.slick" %% "slick" % "3.1.0",
   "org.postgresql" % "postgresql" % "9.4.1212",
   "org.bouncycastle" % "bcprov-jdk16" % "1.46",
   "com.googlecode.owasp-java-html-sanitizer" % "owasp-java-html-sanitizer" % "20170329.1",

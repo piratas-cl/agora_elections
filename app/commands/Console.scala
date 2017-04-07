@@ -111,13 +111,8 @@ class ConsoleImpl extends ConsoleInterface {
 
   // In order to make http requests with Play without a running Play instance,
   // we have to do this
-  // copied from https://www.playframework.com/documentation/2.3.x/ScalaWS
-  val clientConfig = new DefaultWSClientConfig()
-  val secureDefaults:com.ning.http.client.AsyncHttpClientConfig = new NingAsyncHttpClientConfigBuilder(clientConfig).build()
-  val builder = new com.ning.http.client.AsyncHttpClientConfig.Builder(secureDefaults)
-  builder.setCompressionEnabled(true)
-  val secureDefaultsWithSpecificOptions:com.ning.http.client.AsyncHttpClientConfig = builder.build()
-  implicit val wsClient = new play.api.libs.ws.ning.NingWSClient(secureDefaultsWithSpecificOptions)
+  // copied from https://www.playframework.com/documentation/2.4.x/ScalaWS
+  implicit val wsClient = NingWSClient()
 
   /**
    * Generates random plaintext ballots for a number of elections.
@@ -1222,7 +1217,8 @@ object Console
     if(0 == args.length)
     {
       intf.showHelp()
-    } else 
+      System.exit(0)
+    } else
     {
       intf.parse_args(args)
       val command = args(0)

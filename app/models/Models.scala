@@ -23,14 +23,24 @@ import utils.Validator
 import utils.ValidationException
 
 import play.api.Play
-import play.api.db.slick.Config.driver.simple._
-import scala.slick.lifted.Tag
+import slick.lifted.{Tag, TableQuery}
 import play.api.libs.json._
 
 import java.sql.Timestamp
 import java.util.Date
 
-import scala.slick.jdbc.{GetResult, StaticQuery => Q}
+import slick.jdbc.GetResult//, StaticQuery => Q}
+import play.api.db.slick._
+
+import javax.inject.{Singleton, Inject}
+import scala.concurrent.Future
+import play.api.db.slick.{HasDatabaseConfigProvider, DatabaseConfigProvider}
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
+import slick.driver.JdbcProfile
+import slick.driver._
+import slick.driver.H2Driver.api._
+
+import slick.profile.{RelationalProfile, SqlProfile}
 
 /** vote object */
 case class Vote(id: Option[Long], election_id: Long, voter_id: String, vote: String, hash: String, created: Timestamp)
@@ -38,11 +48,11 @@ case class Vote(id: Option[Long], election_id: Long, voter_id: String, vote: Str
 /** relational representation of votes */
 class Votes(tag: Tag) extends Table[Vote](tag, "vote") {
   def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
-  def electionId = column[Long]("election_id", O.NotNull)
-  def voterId = column[String]("voter_id", O.NotNull, O.DBType("text"))
+  def electionId = column[Long]("election_id")
+  def voterId = column[String]("voter_id", O.NotNull, O.DBType("text"))  //use SqlType instead of DBType https://github.com/slick/slick/issues/1147
   def vote = column[String]("vote", O.NotNull, O.DBType("text"))
   def hash = column[String]("hash",  O.NotNull, O.DBType("text"))
-  def created = column[Timestamp]("created", O.NotNull)
+  def created = column[Timestamp]("created")
   def * = (id.?, electionId, voterId, vote, hash, created) <> (Vote.tupled, Vote.unapply _)
 }
 
@@ -51,24 +61,25 @@ object Votes {
 
   val votes = TableQuery[Votes]
 
-  def insert(vote: Vote)(implicit s: Session) = {
+  def insert(vote: Vote) (implicit dbConfig : slick.backend.DatabaseConfig[slick.driver.JdbcProfile]) = {
+    import dbConfig.driver.api._
     (votes returning votes.map(_.id)) += vote
   }
 
-  def byDay(id: Long)(implicit s: Session): List[(String, Long)] = {
+  def byDay(id: Long): List[(String, Long)] = {
     val q = Q[Long, (String, Long)] + "select to_char(created, 'YYYY-MM-DD'), count(id) from vote where election_id=? group by to_char(created, 'YYYY-MM-DD') order by to_char(created, 'YYYY-MM-DD') desc"
     q(id).list
   }
 
-  def findByVoterId(voterId: String)(implicit s: Session): List[Vote] = votes.filter(_.voterId === voterId).list
+  def findByVoterId(voterId: String): List[Vote] = votes.filter(_.voterId === voterId).list
 
-  def findByElectionId(electionId: Long)(implicit s: Session): List[Vote] = votes.filter(_.electionId === electionId).list
+  def findByElectionId(electionId: Long): List[Vote] = votes.filter(_.electionId === electionId).list
 
-  def findByElectionIdRange(electionId: Long, drop: Long, take: Long)(implicit s: Session): List[Vote] = {
+  def findByElectionIdRange(electionId: Long, drop: Long, take: Long): List[Vote] = {
     votes.filter(_.electionId === electionId).sortBy(_.created.desc).drop(drop).take(take).list
   }
 
-  def checkHash(electionId: Long, hash: String)(implicit s: Session): Option[Vote] = {
+  def checkHash(electionId: Long, hash: String): Option[Vote] = {
     val vote = votes.filter(_.electionId === electionId).filter(_.hash === hash).firstOption
 
     // we make sure the hash corresponds to the last vote, otherwise return None
@@ -79,12 +90,12 @@ object Votes {
   }
 
   // def count(implicit s: Session): Int = Query(votes.length).first
-  def count(implicit s: Session): Int = votes.length.run
+  def count(): Int = votes.length.run
 
-  def countForElection(electionId: Long)(implicit s: Session): Int = votes.filter(_.electionId === electionId).length.run
-  def countUniqueForElection(electionId: Long)(implicit s: Session): Int = votes.filter(_.electionId === electionId).groupBy(v=>v.voterId).map(_._1).length.run
+  def countForElection(electionId: Long): Int = votes.filter(_.electionId === electionId).length.run
+  def countUniqueForElection(electionId: Long): Int = votes.filter(_.electionId === electionId).groupBy(v=>v.voterId).map(_._1).length.run
 
-  def countForElectionAndVoter(electionId: Long, voterId: String)(implicit s: Session): Int = {
+  def countForElectionAndVoter(electionId: Long, voterId: String): Int = {
     votes.filter(_.electionId === electionId).filter(_.voterId === voterId).length.run
   }
 }
@@ -201,20 +212,20 @@ object Elections {
 
   val elections = TableQuery[Elections]
 
-  def findById(id: Long)(implicit s: Session): Option[Election] = elections.filter(_.id === id).firstOption
+  def findById(id: Long): Option[Election] = elections.filter(_.id === id).firstOption
 
-  def count(implicit s: Session): Int = elections.length.run
+  def count(): Int = elections.length.run
 
-  def insert(election: Election)(implicit s: Session) = {
+  def insert(election: Election) = {
     (elections returning elections.map(_.id)) += election
   }
 
-  def update(theId: Long, election: Election)(implicit s: Session) = {
+  def update(theId: Long, election: Election) = {
     val electionToWrite = election.copy(id = theId)
     elections.filter(_.id === theId).update(electionToWrite)
   }
 
-  def updateState(id: Long, state: String)(implicit s: Session) = {
+  def updateState(id: Long, state: String) = {
     state match {
       case STARTED => elections.filter(_.id === id).map(e => (e.state, e.startDate)).update(state, new Timestamp(new Date().getTime))
       case STOPPED => elections.filter(_.id === id).map(e => (e.state, e.endDate)).update(state, new Timestamp(new Date().getTime))
@@ -222,20 +233,20 @@ object Elections {
     }
   }
 
-  def updateResults(id: Long, results: String)(implicit s: Session) = {
+  def updateResults(id: Long, results: String) = {
     elections.filter(_.id === id).map(e => (e.state, e.results, e.resultsUpdated))
     .update(Elections.RESULTS_OK, results, new Timestamp(new Date().getTime))
   }
 
-  def updateConfig(id: Long, config: String, start: Timestamp, end: Timestamp)(implicit s: Session) = {
+  def updateConfig(id: Long, config: String, start: Timestamp, end: Timestamp) = {
     elections.filter(_.id === id).map(e => (e.configuration, e.startDate, e.endDate)).update(config, start, end)
   }
 
-  def setPublicKeys(id: Long, pks: String)(implicit s: Session) = {
+  def setPublicKeys(id: Long, pks: String) = {
     elections.filter(_.id === id).map(e => (e.state, e.pks)).update(CREATED, pks)
   }
 
-  def delete(id: Long)(implicit s: Session) = {
+  def delete(id: Long) = {
     elections.filter(_.id === id).delete
   }
 }
